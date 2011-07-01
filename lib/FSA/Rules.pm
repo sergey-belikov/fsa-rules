@@ -208,14 +208,17 @@ keys:
 
 A code reference or value that will be evaluated to determine whether to
 switch to the specified state. The value must be true or the code reference
-must return a true value to trigger the switch to the new state, and false not
-to switch to the new state. When executed, it will be passed the FSA::State
-object for the state for which the rules were defined, along with any other
-arguments passed to C<try_switch()> or C<switch()>--the methods that execute
-the rule code references. These arguments may be inputs that are specifically
-tested to determine whether to switch states. To be polite, rules should not
-transform the passed values if they're returning false, as other rules may
-need to evaluate them (unless you're building some sort of chaining rules--but
+must return a true value to trigger the switch to the new state, and false
+not to switch to the new state. When executed, it will be passed the
+FSA::State object for the current state for which the rules were defined,
+and the FSA::State object for the new state (which will be the next current
+state), along with any other arguments passed to C<try_switch()> or
+C<switch()>--the methods that execute the rule code references.
+
+These arguments may be inputs that are specifically tested to determine
+whether to switch states. To be polite, rules should not transform the
+passed values if they're returning false, as other rules may need to
+evaluate them (unless you're building some sort of chaining rules--but
 those aren't really rules, are they?).
 
 =item message
@@ -589,13 +592,13 @@ sub try_switch {
     my $next;
     while (my $rule = shift @rules) {
         my $code = $rule->{rule};
-        next unless ref $code eq 'CODE' ? $code->($state, @_) : $code;
+        next unless ref $code eq 'CODE' ? $code->($state, $rule->{state}, @_) : $code;
 
         # Make sure that no other rules evaluate to true in strict mode.
         if (@rules && $self->strict) {
             if ( my @new = grep {
                 my $c = $_->{rule};
-                ref $c eq 'CODE' ? $c->( $state, @_ ) : $c
+                ref $c eq 'CODE' ? $c->( $state, $rule->{state}, @_ ) : $c
             } @rules ) {
                 $self->_croak(
                     'Attempt to switch from state "', $state->name, '"',
